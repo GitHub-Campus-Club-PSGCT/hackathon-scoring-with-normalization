@@ -16,10 +16,14 @@ app.secret_key = os.urandom(24)
 # File paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(BASE_DIR, 'config.json')
-STATE_FILE = os.path.join(BASE_DIR, 'state.json')
-SCORES_FILE = os.path.join(BASE_DIR, 'scores.csv')
-LOCK_FILE = os.path.join(BASE_DIR, 'scores.csv.lock')
-STATE_LOCK_FILE = os.path.join(BASE_DIR, 'state.json.lock')
+
+# Data directory - can be overridden via environment variable for cloud deployments
+DATA_DIR = os.environ.get('DATA_DIR', BASE_DIR)
+
+STATE_FILE = os.path.join(DATA_DIR, 'state.json')
+SCORES_FILE = os.path.join(DATA_DIR, 'scores.csv')
+LOCK_FILE = os.path.join(DATA_DIR, 'scores.csv.lock')
+STATE_LOCK_FILE = os.path.join(DATA_DIR, 'state.json.lock')
 
 
 def load_config():
@@ -714,10 +718,17 @@ def api_normalized():
     return jsonify(normalize_scores())
 
 
+# For deployment
 if __name__ == '__main__':
-    # Create a dispatcher that mounts the app at /scoring
-    application = DispatcherMiddleware(
-        Flask(__name__),  # Dummy app for root
-        {'/scoring': app}
-    )
-    run_simple('0.0.0.0', 6060, application, use_reloader=True, use_debugger=True)
+    port = int(os.environ.get('PORT', 6060))
+    
+    if os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('RENDER'):
+        # On Railway/Render - run directly (use reverse proxy for /scoring path if needed)
+        app.run(host='0.0.0.0', port=port, debug=False)
+    else:
+        # Local development - mount at /scoring
+        application = DispatcherMiddleware(
+            Flask(__name__),  # Dummy app for root
+            {'/scoring': app}
+        )
+        run_simple('0.0.0.0', port, application, use_reloader=True, use_debugger=True)
