@@ -140,7 +140,10 @@
 
 <div class="score-header">
     <h2>{{ team.name }}</h2>
-    <span class="team-id">{{ team.id }}</span>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-top: 0.25rem;">
+        <span class="team-id">{{ team.id }}</span>
+        <span style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background: #000; color: #fff;">{{ round_name }}</span>
+    </div>
 </div>
 
 <form method="POST">

@@ -5,6 +5,11 @@
       "password": "admin123"
     }
   ],
+  "rounds": [
+    { "id": "round1", "name": "Round 1 - Preliminary" },
+    { "id": "round2", "name": "Round 2 - Semifinal" },
+    { "id": "round3", "name": "Round 3 - Final" }
+  ],
   "judges": [
     {
       "username": "judge1",

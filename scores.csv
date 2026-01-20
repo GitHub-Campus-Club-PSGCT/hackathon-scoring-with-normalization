@@ -1,5 +1,5 @@
-timestamp,judge,team_id,team_name,innovation,technical,presentation,impact,completeness
-2026-01-20T20:04:31.817884,judge1,team1,Alpha Innovators,6,5,4,5,6
-2026-01-20T20:05:19.093687,judge2,team1,Alpha Innovators,9,8,7,8,9
-2026-01-20T20:25:18.818169,judge3,team1,Alpha Innovators,4,3,2,3,4
-2026-01-20T20:11:09.889074,judge3,team3,Gamma Geeks,5,4,3,1,0
+timestamp,round,judge,team_id,team_name,innovation,technical,presentation,impact,completeness
+2026-01-20T20:04:31.817884,round1,judge1,team1,Alpha Innovators,6,5,4,5,6
+2026-01-20T20:05:19.093687,round1,judge2,team1,Alpha Innovators,9,8,7,8,9
+2026-01-20T20:25:18.818169,round1,judge3,team1,Alpha Innovators,4,3,2,3,4
+2026-01-20T20:11:09.889074,round1,judge3,team3,Gamma Geeks,5,4,3,1,0

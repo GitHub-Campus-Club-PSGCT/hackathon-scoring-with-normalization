@@ -4,6 +4,112 @@
 
 {% block extra_css %}
 <style>
+    .admin-controls {
+        background: #f5f5f5;
+        border: 2px solid #000;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .admin-controls h3 {
+        font-size: 1rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .control-row {
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .control-group {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .control-group label {
+        display: block;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+        color: #666;
+    }
+
+    .control-group select {
+        font-family: inherit;
+        font-size: 0.875rem;
+        padding: 0.5rem;
+        border: 2px solid #000;
+        background: #fff;
+        width: 100%;
+        cursor: pointer;
+    }
+
+    .control-group .btn-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .control-group .btn-small {
+        font-size: 0.75rem;
+        padding: 0.5rem 1rem;
+    }
+
+    .status-indicator {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .status-indicator.open {
+        background: #000;
+        color: #fff;
+    }
+
+    .status-indicator.closed {
+        background: #fff;
+        color: #000;
+        border: 1px solid #000;
+    }
+
+    .round-filter {
+        margin-bottom: 1.5rem;
+    }
+
+    .round-tabs {
+        display: flex;
+        gap: 0;
+        border: 2px solid #000;
+        width: fit-content;
+    }
+
+    .round-tab {
+        padding: 0.75rem 1.5rem;
+        font-size: 0.875rem;
+        text-decoration: none;
+        color: #000;
+        background: #fff;
+        border-right: 2px solid #000;
+        transition: all 0.2s;
+    }
+
+    .round-tab:last-child {
+        border-right: none;
+    }
+
+    .round-tab:hover {
+        background: #f0f0f0;
+    }
+
+    .round-tab.active {
+        background: #000;
+        color: #fff;
+    }
+
     .results-header {
         margin-bottom: 2rem;
     }
@@ -150,14 +256,60 @@
 {% endblock %}
 
 {% block content %}
+<!-- Admin Controls -->
+<div class="admin-controls">
+    <h3>Admin Controls</h3>
+    <div class="control-row">
+        <div class="control-group">
+            <label>Set Active Round for Judges</label>
+            <form method="POST" action="{{ url_for('admin_set_round') }}" style="display: flex; gap: 0.5rem;">
+                <select name="round_id">
+                    {% for r in rounds %}
+                    <option value="{{ r.id }}" {{ 'selected' if r.id == active_round else '' }}>{{ r.name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-small">Set</button>
+            </form>
+        </div>
+        <div class="control-group">
+            <label>Scoring Status</label>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <span class="status-indicator {{ 'open' if scoring_open else 'closed' }}">
+                    {{ 'OPEN' if scoring_open else 'CLOSED' }}
+                </span>
+                <form method="POST" action="{{ url_for('admin_toggle_scoring') }}">
+                    {% if scoring_open %}
+                    <input type="hidden" name="action" value="close">
+                    <button type="submit" class="btn btn-outline btn-small">Close Scoring</button>
+                    {% else %}
+                    <input type="hidden" name="action" value="open">
+                    <button type="submit" class="btn btn-small">Open Scoring</button>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Round Filter -->
+<div class="round-filter">
+    <div class="round-tabs">
+        {% for r in rounds %}
+        <a href="{{ url_for('results', round=r.id) }}" class="round-tab {{ 'active' if r.id == selected_round else '' }}">
+            {{ r.name }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
 <div class="results-header">
     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
         <div>
-            <h2>Results</h2>
+            <h2>Results: {{ round_name }}</h2>
             <p>Normalized scores across all judges</p>
         </div>
         {% if results %}
-        <a href="{{ url_for('export_results') }}" class="btn">Export to Excel</a>
+        <a href="{{ url_for('export_results', round=selected_round) }}" class="btn">Export to Excel</a>
         {% endif %}
     </div>
 </div>
@@ -217,8 +369,8 @@
 </table>
 {% else %}
 <div class="no-results">
-    <h3>No scores yet</h3>
-    <p>Scores will appear here once judges start submitting their evaluations.</p>
+    <h3>No scores yet for {{ round_name }}</h3>
+    <p>Scores will appear here once judges start submitting their evaluations for this round.</p>
 </div>
 {% endif %}
 {% endblock %}
