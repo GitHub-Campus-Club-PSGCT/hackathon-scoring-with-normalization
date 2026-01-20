@@ -1,0 +1,61 @@
+{
+  "admins": [
+    {
+      "username": "admin",
+      "password": "admin123"
+    }
+  ],
+  "judges": [
+    {
+      "username": "judge1",
+      "password": "pass123"
+    },
+    {
+      "username": "judge2",
+      "password": "pass456"
+    },
+    {
+      "username": "judge3",
+      "password": "pass789"
+    }
+  ],
+  "teams": [
+    { "id": "team1", "name": "Alpha Innovators" },
+    { "id": "team2", "name": "Beta Builders" },
+    { "id": "team3", "name": "Gamma Geeks" },
+    { "id": "team4", "name": "Delta Devs" },
+    { "id": "team5", "name": "Epsilon Engineers" }
+  ],
+  "criteria": [
+    {
+      "id": "innovation",
+      "name": "Innovation",
+      "description": "How novel and creative is the solution? Does it introduce new ideas or approaches that haven't been seen before?",
+      "max_score": 10
+    },
+    {
+      "id": "technical",
+      "name": "Technical Complexity",
+      "description": "How technically challenging is the implementation? Consider the use of advanced algorithms, integrations, and overall engineering quality.",
+      "max_score": 10
+    },
+    {
+      "id": "presentation",
+      "name": "Presentation",
+      "description": "How well did the team communicate their idea? Consider clarity, engagement, and the quality of demos or slides.",
+      "max_score": 10
+    },
+    {
+      "id": "impact",
+      "name": "Potential Impact",
+      "description": "What is the potential real-world impact of this project? Consider scalability, market fit, and social benefit.",
+      "max_score": 10
+    },
+    {
+      "id": "completeness",
+      "name": "Completeness",
+      "description": "How complete is the project? Is it a working prototype or just an idea? Consider functionality and polish.",
+      "max_score": 10
+    }
+  ]
+}

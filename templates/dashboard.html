@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Hackathon Scoring{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-header {
+        margin-bottom: 2rem;
+    }
+
+    .dashboard-header h2 {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .progress-bar {
+        background: #f0f0f0;
+        height: 8px;
+        margin-top: 1rem;
+        position: relative;
+    }
+
+    .progress-bar-fill {
+        background: #000;
+        height: 100%;
+        transition: width 0.3s ease;
+    }
+
+    .progress-text {
+        font-size: 0.75rem;
+        color: #666;
+        margin-top: 0.5rem;
+    }
+
+    .teams-list {
+        margin-top: 2rem;
+    }
+
+    .team-card {
+        border: 2px solid #000;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.2s;
+    }
+
+    .team-card:hover {
+        box-shadow: 4px 4px 0 #000;
+        transform: translate(-2px, -2px);
+    }
+
+    .team-info h3 {
+        font-size: 1.125rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .team-info .team-id {
+        font-size: 0.75rem;
+        color: #666;
+    }
+
+    .team-status {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.75rem;
+        border: 1px solid;
+    }
+
+    .status-badge.scored {
+        background: #000;
+        color: #fff;
+        border-color: #000;
+    }
+
+    .status-badge.pending {
+        background: #fff;
+        color: #000;
+        border-color: #000;
+    }
+
+    .btn-small {
+        font-size: 0.75rem;
+        padding: 0.5rem 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h2>Teams to Score</h2>
+    <p>Select a team to submit your scores</p>
+    
+    <div class="progress-bar">
+        <div class="progress-bar-fill" style="width: {{ (scored_count / total_count * 100) if total_count > 0 else 0 }}%"></div>
+    </div>
+    <div class="progress-text">{{ scored_count }} of {{ total_count }} teams scored</div>
+</div>
+
+<div class="teams-list">
+    {% for team in teams %}
+    <div class="team-card">
+        <div class="team-info">
+            <h3>{{ team.name }}</h3>
+            <span class="team-id">{{ team.id }}</span>
+        </div>
+        <div class="team-status">
+            {% if team.scored %}
+                <span class="status-badge scored">Scored</span>
+                <a href="{{ url_for('score_team', team_id=team.id) }}" class="btn btn-outline btn-small">Edit</a>
+            {% else %}
+                <span class="status-badge pending">Pending</span>
+                <a href="{{ url_for('score_team', team_id=team.id) }}" class="btn btn-small">Score</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

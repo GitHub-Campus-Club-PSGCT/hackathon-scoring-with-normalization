@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+
+{% block title %}Score {{ team.name }} - Hackathon Scoring{% endblock %}
+
+{% block extra_css %}
+<style>
+    .score-header {
+        margin-bottom: 2rem;
+    }
+
+    .score-header h2 {
+        font-size: 1.75rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .score-header .team-id {
+        font-size: 0.875rem;
+        color: #666;
+    }
+
+    .back-link {
+        display: inline-block;
+        margin-bottom: 1.5rem;
+        font-size: 0.875rem;
+        text-decoration: none;
+        color: #666;
+    }
+
+    .back-link:hover {
+        color: #000;
+    }
+
+    .criteria-list {
+        margin-top: 2rem;
+    }
+
+    .criteria-card {
+        border: 2px solid #000;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .criteria-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+
+    .criteria-name {
+        font-size: 1.125rem;
+        font-weight: 700;
+    }
+
+    .criteria-max {
+        font-size: 0.75rem;
+        color: #666;
+        background: #f0f0f0;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .criteria-description {
+        font-size: 0.875rem;
+        color: #444;
+        line-height: 1.5;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #eee;
+    }
+
+    .score-input-group {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .score-input {
+        width: 100px;
+        text-align: center;
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+
+    .score-slider {
+        flex: 1;
+        -webkit-appearance: none;
+        appearance: none;
+        height: 8px;
+        background: #f0f0f0;
+        border: 1px solid #000;
+        cursor: pointer;
+    }
+
+    .score-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        background: #000;
+        cursor: pointer;
+    }
+
+    .score-slider::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        background: #000;
+        cursor: pointer;
+        border: none;
+    }
+
+    .form-actions {
+        margin-top: 2rem;
+        display: flex;
+        gap: 1rem;
+    }
+
+    .total-score {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background: #000;
+        color: #fff;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .total-score-label {
+        font-size: 0.875rem;
+    }
+
+    .total-score-value {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('dashboard') }}" class="back-link">← Back to Dashboard</a>
+
+<div class="score-header">
+    <h2>{{ team.name }}</h2>
+    <span class="team-id">{{ team.id }}</span>
+</div>
+
+<form method="POST">
+    <div class="criteria-list">
+        {% for c in criteria %}
+        <div class="criteria-card">
+            <div class="criteria-header">
+                <span class="criteria-name">{{ c.name }}</span>
+                <span class="criteria-max">Max: {{ c.max_score }}</span>
+            </div>
+            <p class="criteria-description">{{ c.description }}</p>
+            <div class="score-input-group">
+                <input type="range" 
+                       class="score-slider" 
+                       id="slider_{{ c.id }}" 
+                       min="0" 
+                       max="{{ c.max_score }}" 
+                       value="{{ existing_scores[c.id] if existing_scores else 0 }}"
+                       oninput="document.getElementById('{{ c.id }}').value = this.value; updateTotal();">
+                <input type="number" 
+                       class="score-input" 
+                       id="{{ c.id }}" 
+                       name="{{ c.id }}" 
+                       min="0" 
+                       max="{{ c.max_score }}" 
+                       value="{{ existing_scores[c.id] if existing_scores else 0 }}"
+                       oninput="document.getElementById('slider_{{ c.id }}').value = this.value; updateTotal();">
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="total-score">
+        <span class="total-score-label">Total Score</span>
+        <span class="total-score-value" id="total-score">0 / {{ criteria|map(attribute='max_score')|sum }}</span>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit">Save Scores</button>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline">Cancel</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const criteriaIds = {{ criteria|map(attribute='id')|list|tojson }};
+    const maxTotal = {{ criteria|map(attribute='max_score')|sum }};
+
+    function updateTotal() {
+        let total = 0;
+        criteriaIds.forEach(id => {
+            const input = document.getElementById(id);
+            total += parseInt(input.value) || 0;
+        });
+        document.getElementById('total-score').textContent = total + ' / ' + maxTotal;
+    }
+
+    // Initialize total on page load
+    updateTotal();
+
+    // Prevent scroll wheel from changing number input values
+    document.querySelectorAll('input[type="number"]').forEach(input => {
+        input.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            this.blur();
+        }, { passive: false });
+    });
+</script>
+{% endblock %}
