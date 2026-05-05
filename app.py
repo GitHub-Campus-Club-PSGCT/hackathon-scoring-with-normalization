@@ -1,0 +1,772 @@
+import os
+import json
+import csv
+from datetime import datetime
+from functools import wraps
+from filelock import FileLock
+import numpy as np
+import pandas as pd
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
+from werkzeug.serving import run_simple
+
+app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "thooral-strong-secret-key-it-is")
+
+# File paths: use DATA_DIR for config/state/scores when set (e.g. Docker volume at /app/data)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SERVER_SUBPATH = os.environ.get('SERVER_SUBPATH', '/scoring')
+DATA_DIR = os.environ.get('DATA_DIR', BASE_DIR)
+CONFIG_FILE =os.path.join(DATA_DIR, 'config.json')
+STATE_FILE = os.path.join(DATA_DIR, 'state.json')
+SCORES_FILE = os.path.join(DATA_DIR, 'scores.csv')
+LOCK_FILE = os.path.join(DATA_DIR, 'scores.csv.lock')
+STATE_LOCK_FILE = os.path.join(DATA_DIR, 'state.json.lock')
+
+
+def load_config():
+    """Load configuration from JSON file."""
+    with open(CONFIG_FILE, 'r') as f:
+        return json.load(f)
+
+
+def get_judges():
+    """Get list of judges from config."""
+    config = load_config()
+    return {j['username']: j['password'] for j in config['judges']}
+
+
+def get_admins():
+    """Get list of admins from config."""
+    config = load_config()
+    return {a['username']: a['password'] for a in config.get('admins', [])}
+
+
+def get_teams():
+    """Get list of teams from config."""
+    config = load_config()
+    return config['teams']
+
+
+def get_criteria():
+    """Get judging criteria from config."""
+    config = load_config()
+    return config['criteria']
+
+
+def get_rounds():
+    """Get list of rounds from config."""
+    config = load_config()
+    return config.get('rounds', [{'id': 'round1', 'name': 'Round 1'}])
+
+
+def calculate_max_possible_score():
+    """
+    Calculate maximum possible score considering adder and multiplier criteria.
+    Final score = (sum of adder max scores) * (product of multiplier max map values)
+    """
+    criteria = get_criteria()
+    adder_sum = sum(c['max_score'] for c in criteria if c.get('type', 'adder') == 'adder')
+    multiplier_product = 1.0
+    for c in criteria:
+        if c.get('type', 'adder') == 'multiplier':
+            multiplier_product *= c.get('map_max', 1.0)
+    return adder_sum * multiplier_product
+
+
+def load_state():
+    """Load application state (active round, etc.)."""
+    lock = FileLock(STATE_LOCK_FILE, timeout=10)
+    with lock:
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, 'r') as f:
+                return json.load(f)
+        else:
+            # Default state - write directly within this lock
+            rounds = get_rounds()
+            default_state = {
+                'active_round': rounds[0]['id'] if rounds else 'round1',
+                'scoring_open': True
+            }
+            with open(STATE_FILE, 'w') as f:
+                json.dump(default_state, f, indent=2)
+            return default_state
+
+
+def save_state(state):
+    """Save application state."""
+    lock = FileLock(STATE_LOCK_FILE, timeout=10)
+    with lock:
+        with open(STATE_FILE, 'w') as f:
+            json.dump(state, f, indent=2)
+
+
+def get_active_round():
+    """Get the currently active round."""
+    state = load_state()
+    return state.get('active_round', 'round1')
+
+
+def is_scoring_open():
+    """Check if scoring is currently open."""
+    state = load_state()
+    return state.get('scoring_open', True)
+
+
+def set_active_round(round_id):
+    """Set the active round (admin only)."""
+    lock = FileLock(STATE_LOCK_FILE, timeout=10)
+    with lock:
+        state = {}
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, 'r') as f:
+                state = json.load(f)
+        state['active_round'] = round_id
+        with open(STATE_FILE, 'w') as f:
+            json.dump(state, f, indent=2)
+
+
+def set_scoring_open(is_open):
+    """Open or close scoring (admin only)."""
+    lock = FileLock(STATE_LOCK_FILE, timeout=10)
+    with lock:
+        state = {}
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, 'r') as f:
+                state = json.load(f)
+        state['scoring_open'] = is_open
+        with open(STATE_FILE, 'w') as f:
+            json.dump(state, f, indent=2)
+
+
+def init_scores_file():
+    """Initialize the scores CSV file if it doesn't exist or update headers if needed."""
+    criteria = get_criteria()
+    new_headers = ['timestamp', 'round', 'judge', 'team_id', 'team_name'] + [c['id'] for c in criteria]
+    
+    if not os.path.exists(SCORES_FILE):
+        with open(SCORES_FILE, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(new_headers)
+    else:
+        # Check if file has old format (without round column) and migrate
+        lock = FileLock(LOCK_FILE, timeout=10)
+        with lock:
+            with open(SCORES_FILE, 'r', newline='') as f:
+                reader = csv.reader(f)
+                rows = list(reader)
+            
+            if rows and 'round' not in rows[0]:
+                # Migrate old format to new format
+                old_headers = rows[0]
+                # Insert 'round' after 'timestamp'
+                migrated_rows = [new_headers]
+                for row in rows[1:]:
+                    # Insert default round value
+                    new_row = [row[0], 'round1'] + row[1:]
+                    migrated_rows.append(new_row)
+                
+                with open(SCORES_FILE, 'w', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerows(migrated_rows)
+
+
+def save_scores(judge, team_id, team_name, scores, round_id=None):
+    """Save scores to CSV file with file locking for concurrent access."""
+    if round_id is None:
+        round_id = get_active_round()
+    
+    lock = FileLock(LOCK_FILE, timeout=10)
+    
+    with lock:
+        # Read existing scores
+        existing_rows = []
+        if os.path.exists(SCORES_FILE):
+            with open(SCORES_FILE, 'r', newline='') as f:
+                reader = csv.reader(f)
+                existing_rows = list(reader)
+        
+        # Get headers
+        criteria = get_criteria()
+        headers = ['timestamp', 'round', 'judge', 'team_id', 'team_name'] + [c['id'] for c in criteria]
+        
+        # If file is empty or doesn't have headers, add them
+        if not existing_rows:
+            existing_rows = [headers]
+        
+        # Check if this judge already scored this team in this round
+        updated = False
+        for i, row in enumerate(existing_rows[1:], start=1):
+            if len(row) >= 4 and row[1] == round_id and row[2] == judge and row[3] == team_id:
+                # Update existing score
+                timestamp = datetime.now().isoformat()
+                new_row = [timestamp, round_id, judge, team_id, team_name] + [scores.get(c['id'], 0) for c in criteria]
+                existing_rows[i] = new_row
+                updated = True
+                break
+        
+        # If no existing score found, append new one
+        if not updated:
+            timestamp = datetime.now().isoformat()
+            new_row = [timestamp, round_id, judge, team_id, team_name] + [scores.get(c['id'], 0) for c in criteria]
+            existing_rows.append(new_row)
+        
+        # Write back all rows
+        with open(SCORES_FILE, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerows(existing_rows)
+
+
+def get_all_scores(round_id=None):
+    """Read all scores from CSV file, optionally filtered by round."""
+    if not os.path.exists(SCORES_FILE):
+        return []
+    
+    lock = FileLock(LOCK_FILE, timeout=10)
+    with lock:
+        with open(SCORES_FILE, 'r', newline='') as f:
+            reader = csv.DictReader(f)
+            scores = list(reader)
+    
+    if round_id:
+        scores = [s for s in scores if s.get('round') == round_id]
+    
+    return scores
+
+
+def get_judge_scores(judge, round_id=None):
+    """Get all scores submitted by a specific judge, optionally filtered by round."""
+    all_scores = get_all_scores(round_id)
+    return [s for s in all_scores if s.get('judge') == judge]
+
+
+def get_team_score_by_judge(judge, team_id, round_id=None):
+    """Get scores for a specific team by a specific judge in a specific round."""
+    if round_id is None:
+        round_id = get_active_round()
+    judge_scores = get_judge_scores(judge, round_id)
+    for score in judge_scores:
+        if score.get('team_id') == team_id:
+            return score
+    return None
+
+
+def normalize_scores(round_id=None):
+    """
+    Normalize scores using Z-score normalization per judge.
+    This accounts for judges who are strict or lenient.
+    Each judge's scores are normalized to have mean=0, std=1,
+    then transformed to a 0-100 scale.
+    """
+    all_scores = get_all_scores(round_id)
+    if not all_scores:
+        return []
+    
+    criteria = get_criteria()
+    criteria_ids = [c['id'] for c in criteria]
+    
+    # Convert to DataFrame for easier manipulation
+    df = pd.DataFrame(all_scores)
+    
+    if df.empty:
+        return []
+    
+    # Convert score columns to numeric
+    for cid in criteria_ids:
+        if cid in df.columns:
+            df[cid] = pd.to_numeric(df[cid], errors='coerce').fillna(0)
+    
+    # Separate adder and multiplier criteria
+    adder_criteria = [c for c in criteria if c.get('type', 'adder') == 'adder']
+    multiplier_criteria = [c for c in criteria if c.get('type', 'adder') == 'multiplier']
+    
+    adder_ids = [c['id'] for c in adder_criteria]
+    multiplier_ids = [c['id'] for c in multiplier_criteria]
+    
+    # Calculate total raw score for each entry
+    # For adder criteria: sum them
+    df['adder_sum'] = df[adder_ids].sum(axis=1) if adder_ids else 0
+    
+    # For multiplier criteria: map to decimal range and multiply
+    df['multiplier_product'] = 1.0
+    for c in multiplier_criteria:
+        cid = c['id']
+        if cid in df.columns:
+            # Map score from [min_score, max_score] to [map_min, map_max]
+            min_s = c.get('min_score', 0)
+            max_s = c.get('max_score', 10)
+            map_min = c.get('map_min', 0.0)
+            map_max = c.get('map_max', 1.0)
+            
+            # Avoid division by zero
+            if max_s != min_s:
+                df[f'{cid}_mapped'] = map_min + (df[cid] - min_s) / (max_s - min_s) * (map_max - map_min)
+            else:
+                df[f'{cid}_mapped'] = map_min
+            
+            # Clip to ensure it stays in range
+            df[f'{cid}_mapped'] = df[f'{cid}_mapped'].clip(map_min, map_max)
+            df['multiplier_product'] *= df[f'{cid}_mapped']
+    
+    # Final score: adder_sum * multiplier_product
+    df['total_raw'] = df['adder_sum'] * df['multiplier_product']
+    
+    # Z-score normalize per judge (within the filtered round)
+    normalized_data = []
+    
+    for judge in df['judge'].unique():
+        judge_df = df[df['judge'] == judge].copy()
+        
+        if len(judge_df) > 1:
+            # Calculate mean and std for this judge's total scores
+            mean_score = judge_df['total_raw'].mean()
+            std_score = judge_df['total_raw'].std()
+            
+            if std_score > 0:
+                # Z-score normalization
+                judge_df['z_score'] = (judge_df['total_raw'] - mean_score) / std_score
+            else:
+                judge_df['z_score'] = 0
+        else:
+            # Only one score from this judge, can't normalize
+            judge_df['z_score'] = 0
+        
+        normalized_data.append(judge_df)
+    
+    if not normalized_data:
+        return []
+    
+    result_df = pd.concat(normalized_data, ignore_index=True)
+    
+    # Convert Z-scores to 0-100 scale (assuming Z-scores typically range from -3 to 3)
+    # Map z-score to 0-100: z=-3 -> 0, z=0 -> 50, z=3 -> 100
+    result_df['normalized_score'] = ((result_df['z_score'] + 3) / 6 * 100).clip(0, 100).round(2)
+    
+    # Aggregate by team
+    team_results = []
+    for team_id in result_df['team_id'].unique():
+        team_data = result_df[result_df['team_id'] == team_id]
+        team_name = team_data['team_name'].iloc[0]
+        
+        avg_raw = team_data['total_raw'].mean()
+        avg_normalized = team_data['normalized_score'].mean()
+        num_judges = len(team_data)
+        
+        # Individual judge scores for this team
+        judge_scores = []
+        for _, row in team_data.iterrows():
+            judge_scores.append({
+                'judge': row['judge'],
+                'raw_score': row['total_raw'],
+                'normalized_score': row['normalized_score']
+            })
+        
+        team_results.append({
+            'team_id': team_id,
+            'team_name': team_name,
+            'avg_raw_score': round(avg_raw, 2),
+            'avg_normalized_score': round(avg_normalized, 2),
+            'num_judges': num_judges,
+            'judge_scores': judge_scores
+        })
+    
+    # Sort by normalized score descending
+    team_results.sort(key=lambda x: x['avg_normalized_score'], reverse=True)
+    
+    return team_results
+
+
+def login_required(f):
+    """Decorator to require login for a route."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'judge' not in session and 'admin' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def admin_required(f):
+    """Decorator to require admin login for a route."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'admin' not in session:
+            flash('Admin access required', 'error')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# Initialize scores file on startup
+init_scores_file()
+
+
+@app.route('/')
+def index():
+    """Redirect to login or dashboard."""
+    if 'admin' in session:
+        return redirect(url_for('results'))
+    if 'judge' in session:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Handle judge or admin login."""
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        
+        # Check admin credentials first
+        admins = get_admins()
+        if username in admins and admins[username] == password:
+            session['admin'] = username
+            flash('Admin login successful', 'success')
+            return redirect(url_for('results'))
+        
+        # Then check judge credentials
+        judges = get_judges()
+        if username in judges and judges[username] == password:
+            session['judge'] = username
+            flash('Login successful', 'success')
+            return redirect(url_for('dashboard'))
+        
+        flash('Invalid username or password', 'error')
+    
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    """Handle judge or admin logout."""
+    session.pop('judge', None)
+    session.pop('admin', None)
+    flash('You have been logged out', 'info')
+    return redirect(url_for('login'))
+
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    """Main dashboard showing teams to score."""
+    judge = session['judge']
+    teams = get_teams()
+    active_round = get_active_round()
+    scoring_open = is_scoring_open()
+    rounds = get_rounds()
+    
+    # Get round name
+    round_name = active_round
+    for r in rounds:
+        if r['id'] == active_round:
+            round_name = r['name']
+            break
+    
+    # Get scores for current round only
+    judge_scores = get_judge_scores(judge, active_round)
+    
+    # Mark which teams have been scored in this round
+    scored_team_ids = {s['team_id'] for s in judge_scores}
+    
+    teams_with_status = []
+    for team in teams:
+        teams_with_status.append({
+            **team,
+            'scored': team['id'] in scored_team_ids
+        })
+    
+    return render_template('dashboard.html', 
+                         judge=judge, 
+                         teams=teams_with_status,
+                         scored_count=len(scored_team_ids),
+                         total_count=len(teams),
+                         active_round=active_round,
+                         round_name=round_name,
+                         scoring_open=scoring_open)
+
+
+@app.route('/score/<team_id>', methods=['GET', 'POST'])
+@login_required
+def score_team(team_id):
+    """Score a specific team."""
+    if 'judge' not in session:
+        flash('Only judges can score teams', 'error')
+        return redirect(url_for('login'))
+    
+    # Check if scoring is open
+    if not is_scoring_open():
+        flash('Scoring is currently closed', 'error')
+        return redirect(url_for('dashboard'))
+    
+    judge = session['judge']
+    teams = get_teams()
+    criteria = get_criteria()
+    active_round = get_active_round()
+    rounds = get_rounds()
+    
+    # Get round name
+    round_name = active_round
+    for r in rounds:
+        if r['id'] == active_round:
+            round_name = r['name']
+            break
+    
+    # Find the team
+    team = None
+    for t in teams:
+        if t['id'] == team_id:
+            team = t
+            break
+    
+    if not team:
+        flash('Team not found', 'error')
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        # Double-check scoring is still open
+        if not is_scoring_open():
+            flash('Scoring is currently closed', 'error')
+            return redirect(url_for('dashboard'))
+        
+        scores = {}
+        for c in criteria:
+            score_value = request.form.get(c['id'], 0)
+            try:
+                score_value = int(score_value)
+                min_score = c.get('min_score', 0)
+                score_value = max(min_score, min(score_value, c['max_score']))
+            except (ValueError, TypeError):
+                score_value = c.get('min_score', 0)
+            scores[c['id']] = score_value
+        
+        save_scores(judge, team['id'], team['name'], scores, active_round)
+        flash(f'Scores saved for {team["name"]} ({round_name})', 'success')
+        return redirect(url_for('dashboard'))
+    
+    # Get existing scores for this round
+    existing_scores = get_team_score_by_judge(judge, team_id, active_round)
+    
+    return render_template('score.html',
+                         judge=judge,
+                         team=team,
+                         criteria=criteria,
+                         existing_scores=existing_scores,
+                         round_name=round_name)
+
+
+@app.route('/results')
+@admin_required
+def results():
+    """View normalized results (admin only)."""
+    admin = session['admin']
+    rounds = get_rounds()
+    active_round = get_active_round()
+    scoring_open = is_scoring_open()
+    
+    # Get selected round from query params, default to active round
+    selected_round = request.args.get('round', active_round)
+    
+    # Get round name
+    round_name = selected_round
+    for r in rounds:
+        if r['id'] == selected_round:
+            round_name = r['name']
+            break
+    
+    team_results = normalize_scores(selected_round)
+    criteria = get_criteria()
+    max_possible = calculate_max_possible_score()
+    
+    return render_template('results.html',
+                         admin=admin,
+                         results=team_results,
+                         max_possible=max_possible,
+                         rounds=rounds,
+                         selected_round=selected_round,
+                         round_name=round_name,
+                         active_round=active_round,
+                         scoring_open=scoring_open)
+
+
+@app.route('/admin/set-round', methods=['POST'])
+@admin_required
+def admin_set_round():
+    """Set the active round for scoring."""
+    round_id = request.form.get('round_id')
+    if round_id:
+        set_active_round(round_id)
+        rounds = get_rounds()
+        round_name = round_id
+        for r in rounds:
+            if r['id'] == round_id:
+                round_name = r['name']
+                break
+        flash(f'Active round set to: {round_name}', 'success')
+    return redirect(url_for('results'))
+
+
+@app.route('/admin/toggle-scoring', methods=['POST'])
+@admin_required
+def admin_toggle_scoring():
+    """Open or close scoring."""
+    action = request.form.get('action')
+    if action == 'open':
+        set_scoring_open(True)
+        flash('Scoring is now OPEN', 'success')
+    elif action == 'close':
+        set_scoring_open(False)
+        flash('Scoring is now CLOSED', 'success')
+    return redirect(url_for('results'))
+
+
+@app.route('/export-results')
+@admin_required
+def export_results():
+    """Export results to XLSX with two sheets: Rankings and Raw Scores."""
+    from flask import Response
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+    
+    # Get selected round from query params
+    selected_round = request.args.get('round')
+    rounds = get_rounds()
+    
+    # Get round name for filename
+    round_name = selected_round if selected_round else 'all'
+    for r in rounds:
+        if r['id'] == selected_round:
+            round_name = r['name'].replace(' ', '_')
+            break
+    
+    team_results = normalize_scores(selected_round)
+    criteria = get_criteria()
+    max_possible = calculate_max_possible_score()
+    all_scores = get_all_scores(selected_round)
+    
+    # Create workbook
+    wb = Workbook()
+    
+    # --- Sheet 1: Rankings ---
+    ws1 = wb.active
+    ws1.title = "Rankings"
+    
+    # Header style
+    header_font = Font(bold=True)
+    header_fill = PatternFill(start_color="000000", end_color="000000", fill_type="solid")
+    header_font_white = Font(bold=True, color="FFFFFF")
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Write headers for Rankings
+    ranking_headers = ['Rank', 'Team ID', 'Team Name', 'Avg Raw Score', 'Max Possible', 'Avg Normalized Score', 'Num Judges']
+    for col, header in enumerate(ranking_headers, 1):
+        cell = ws1.cell(row=1, column=col, value=header)
+        cell.font = header_font_white
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = thin_border
+    
+    # Write ranking data
+    for i, result in enumerate(team_results, 1):
+        row_data = [
+            i,
+            result['team_id'],
+            result['team_name'],
+            result['avg_raw_score'],
+            max_possible,
+            result['avg_normalized_score'],
+            result['num_judges']
+        ]
+        for col, value in enumerate(row_data, 1):
+            cell = ws1.cell(row=i+1, column=col, value=value)
+            cell.border = thin_border
+            if col in [1, 4, 5, 6, 7]:
+                cell.alignment = Alignment(horizontal='center')
+    
+    # Adjust column widths for Rankings
+    ws1.column_dimensions['A'].width = 8
+    ws1.column_dimensions['B'].width = 15
+    ws1.column_dimensions['C'].width = 25
+    ws1.column_dimensions['D'].width = 15
+    ws1.column_dimensions['E'].width = 12
+    ws1.column_dimensions['F'].width = 20
+    ws1.column_dimensions['G'].width = 12
+    
+    # --- Sheet 2: Raw Scores (scores.csv data) ---
+    ws2 = wb.create_sheet(title="Raw Scores")
+    
+    # Get headers from criteria
+    criteria_ids = [c['id'] for c in criteria]
+    criteria_names = {c['id']: c['name'] for c in criteria}
+    raw_headers = ['Timestamp', 'Judge', 'Team ID', 'Team Name'] + [criteria_names.get(cid, cid) for cid in criteria_ids]
+    
+    # Write headers for Raw Scores
+    for col, header in enumerate(raw_headers, 1):
+        cell = ws2.cell(row=1, column=col, value=header)
+        cell.font = header_font_white
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = thin_border
+    
+    # Write raw score data
+    for row_idx, score in enumerate(all_scores, 2):
+        row_data = [
+            score.get('timestamp', ''),
+            score.get('judge', ''),
+            score.get('team_id', ''),
+            score.get('team_name', '')
+        ] + [score.get(cid, 0) for cid in criteria_ids]
+        
+        for col, value in enumerate(row_data, 1):
+            cell = ws2.cell(row=row_idx, column=col, value=value)
+            cell.border = thin_border
+            if col > 4:  # Score columns
+                cell.alignment = Alignment(horizontal='center')
+    
+    # Adjust column widths for Raw Scores
+    ws2.column_dimensions['A'].width = 22
+    ws2.column_dimensions['B'].width = 12
+    ws2.column_dimensions['C'].width = 15
+    ws2.column_dimensions['D'].width = 25
+    for i, _ in enumerate(criteria_ids, 5):
+        ws2.column_dimensions[chr(64 + i)].width = 18
+    
+    # Save to BytesIO
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return Response(
+        output.getvalue(),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename=hackathon_results_{round_name}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'}
+    )
+
+
+@app.route('/api/scores', methods=['GET'])
+@admin_required
+def api_scores():
+    """API endpoint to get all scores (admin only)."""
+    return jsonify(get_all_scores())
+
+
+@app.route('/api/normalized', methods=['GET'])
+@admin_required
+def api_normalized():
+    """API endpoint to get normalized scores (admin only)."""
+    return jsonify(normalize_scores())
+
+
+if __name__ == '__main__':
+    # Create a dispatcher that mounts the app at /scoring
+    application = DispatcherMiddleware(
+        Flask(__name__),  # Dummy app for root
+        {f'{SERVER_SUBPATH}': app}
+    )
+    run_simple('0.0.0.0', 6060, application, use_reloader=True, use_debugger=True)

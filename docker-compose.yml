@@ -1,0 +1,24 @@
+services:
+  hackathon-scoring:
+    image: akashshanmugaraj/pw2scoring:linux
+    container_name: pw2-scoring-app
+    ports:
+      - "6060:6060"
+    volumes:
+      # Persist mutable app data files
+      - ./scores.csv:/app/data/scores.csv
+      - ./state.json:/app/data/state.json
+      # Mount a deploy-time config file path
+      - ./config.json:/app/config/config.json:ro
+    environment:
+      - FLASK_ENV=production
+      - DATA_DIR=/app/data
+      - CONFIG_FILE=/app/config/config.json
+      - SERVER_SUBPATH=/pw2/scoring
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6060/pw2/scoring/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

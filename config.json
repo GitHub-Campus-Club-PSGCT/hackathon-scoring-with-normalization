@@ -1,0 +1,142 @@
+{
+  "admins": [
+    {
+      "username": "akashadmin",
+      "password": "akashsakashs"
+    },
+    {
+      "username": "assn",
+      "password": "CSEA@123"
+    }
+  ],
+  "rounds": [
+    { "id": "round1", "name": "Round 1 - Internal Review" },
+    { "id": "round2", "name": "Round 2 - Final Review" }
+  ],
+  "judges": [
+    {
+      "username": "judge1",
+      "password": "7896"
+    },
+    {
+      "username": "judge2",
+      "password": "3180"
+    },
+    {
+      "username": "judge3",
+      "password": "8315"
+    },
+    {
+      "username": "judge4",
+      "password": "4567"
+    },
+    {
+      "username": "judge5",
+      "password": "7890"
+    },
+    {
+      "username": "judge6",
+      "password": "1234"
+    },
+    {
+      "username": "judge7",
+      "password": "5678"
+    },
+    {
+      "username": "judge8",
+      "password": "9012"
+    },
+    {
+      "username": "judge9",
+      "password": "3456"
+    },
+    {
+      "username": "judge10",
+      "password": "7890"
+    },    
+    {
+      "username": "assnjudge",
+      "password": "ghccisbetterthancsea"
+    }
+  ],
+  "teams": [
+    {"id": "G1-1", "name": "G1 Team 1"}, 
+    {"id": "G1-2", "name": "G1 Team 2"}, 
+    {"id": "G1-3", "name": "G1 Team 3"}, 
+    {"id": "G1-4", "name": "G1 Team 4"}, 
+    {"id": "G1-5", "name": "G1 Team 5"}, 
+    {"id": "G1-6", "name": "G1 Team 6"}, 
+    {"id": "G1-7", "name": "G1 Team 7"}, 
+    {"id": "G1-8", "name": "G1 Team 8"}, 
+    {"id": "G1-9", "name": "G1 Team 9"}, 
+    {"id": "G1-10", "name": "G1 Team 10"}, 
+    {"id": "G1-11", "name": "G1 Team 11"}, 
+    {"id": "G1-12", "name": "G1 Team 12"}, 
+    {"id": "G1-13", "name": "G1 Team 13"}, 
+    {"id": "G1-14", "name": "G1 Team 14"}, 
+    {"id": "G1-15", "name": "G1 Team 15"}, 
+    {"id": "G1-16", "name": "G1 Team 16"}, 
+    {"id": "G1-17", "name": "G1 Team 17"}, 
+    {"id": "G2-1", "name": "G2 Team 1"}, 
+    {"id": "G2-2", "name": "G2 Team 2"}, 
+    {"id": "G2-3", "name": "G2 Team 3"}, 
+    {"id": "G2-4", "name": "G2 Team 4"}, 
+    {"id": "G2-5", "name": "G2 Team 5"}, 
+    {"id": "G2-6", "name": "G2 Team 6"}, 
+    {"id": "G2-7", "name": "G2 Team 7"}, 
+    {"id": "G2-8", "name": "G2 Team 8"}, 
+    {"id": "G2-9", "name": "G2 Team 9"}, 
+    {"id": "G2-10", "name": "G2 Team 10"}, 
+    {"id": "G2-11", "name": "G2 Team 11"}, 
+    {"id": "G2-12", "name": "G2 Team 12"}, 
+    {"id": "G2-13", "name": "G2 Team 13"}, 
+    {"id": "G2-14", "name": "G2 Team 14"}, 
+    {"id": "G2-15", "name": "G2 Team 15"}, 
+    {"id": "G2-16", "name": "G2 Team 16"}, 
+    {"id": "G2-17", "name": "G2 Team 17"} 
+  ],
+  "criteria": [
+    {
+      "id": "innovation",
+      "name": "Innovation",
+      "description": "How novel and creative is the solution? Does it introduce new ideas or approaches that haven't been seen before?",
+      "type": "adder",
+      "min_score": 0,
+      "max_score": 10
+    },
+    {
+      "id": "effectiveness",
+      "name": "Effectiveness",
+      "description": "Measures how well the product solves the stated problem in a practical, reliable, and impactful way.",
+      "type": "adder",
+      "min_score": 0,
+      "max_score": 10
+    },
+    {
+      "id": "technical",
+      "name": "Technical Complexity",
+      "description": "How technically challenging is the implementation? Consider the use of advanced algorithms, integrations, and overall engineering quality.",
+      "type": "adder",
+      "min_score": 0,
+      "max_score": 10
+    },
+    {
+      "id": "impact",
+      "name": "Potential Impact",
+      "description": "What is the potential real-world impact of this project? Consider scalability, market fit, and social benefit.",
+      "type": "adder",
+      "min_score": 0,
+      "max_score": 10
+    },
+    {
+      "id": "ai_penalty",
+      "name": "AI Penalty",
+      "description": "Penalizes submissions that rely heavily on out-of-the-box AI tools, prebuilt models, or simple API wrappers with little to no original effort, customization, or problem-specific thinking.",
+      "type": "multiplier",
+      "min_score": -10,
+      "max_score": 5,
+      "map_min": 0.1,
+      "map_max": 1.2
+    }
+  ]
+}
