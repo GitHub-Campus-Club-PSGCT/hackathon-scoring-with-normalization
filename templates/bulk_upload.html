@@ -1,0 +1,125 @@
+{% extends 'bulk_base.html' %}
+
+{% block title %}Upload Sheet - Bulk Normalization{% endblock %}
+
+{% block extra_css %}
+<style>
+    .lead {
+        margin-bottom: 1.5rem;
+        color: #444;
+        font-size: 0.9rem;
+    }
+    .warning {
+        border: 2px solid #000;
+        background: #f5f5f5;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        font-size: 0.86rem;
+    }
+    .warning p { margin-bottom: 0.75rem; }
+    .warning p:last-child { margin-bottom: 0; }
+    .form-row { margin-bottom: 1rem; }
+    .drop-zone {
+        border: 2px dashed #000;
+        background: #fafafa;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .drop-zone.drag-over {
+        background: #eaeaea;
+    }
+    .drop-zone p {
+        margin: 0.3rem 0;
+        font-size: 0.85rem;
+        color: #444;
+    }
+    .file-name {
+        margin-top: 0.6rem;
+        font-size: 0.82rem;
+        color: #000;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin-bottom: 0.5rem;">Upload CSV / Excel</h2>
+    <p class="lead">Upload one scoring sheet with one or more criteria columns. You will choose evaluator, team ID, and criteria fields in the next step.</p>
+
+    <div class="warning">
+        <p><strong>Before uploading:</strong> all scoring fields must contain only integer or float values.</p>
+        <p><strong>Evaluator ID is mandatory:</strong> normalization is performed per evaluator. Identifying who gave each set of marks is essential to correct strict/lenient scoring behavior fairly.</p>
+        <p><strong>Team ID is mandatory:</strong> final ranking is aggregated by team identity. Without a stable team identifier, scores from multiple evaluators cannot be grouped correctly for normalization and ranking.</p>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+        <div class="form-row">
+            <label for="file" style="display:block; margin-bottom:0.5rem; font-size:0.85rem; font-weight:600;">Select file</label>
+            <input type="file" id="file" name="file" accept=".csv,.xlsx,.xls" required style="display:none;">
+            <div class="drop-zone" id="drop-zone" tabindex="0" role="button" aria-label="Drag and drop file upload zone">
+                <p><strong>Drag and drop</strong> your CSV/XLSX file here</p>
+                <p>or click to browse files</p>
+                <div class="file-name" id="file-name">No file selected</div>
+            </div>
+        </div>
+        <button type="submit">Continue</button>
+    </form>
+</div>
+
+<script>
+(function () {
+    const fileInput = document.getElementById('file');
+    const dropZone = document.getElementById('drop-zone');
+    const fileName = document.getElementById('file-name');
+
+    function updateFileName(file) {
+        fileName.textContent = file ? file.name : 'No file selected';
+    }
+
+    function setFiles(files) {
+        if (!files || files.length === 0) return;
+        fileInput.files = files;
+        updateFileName(files[0]);
+    }
+
+    dropZone.addEventListener('click', function () {
+        fileInput.click();
+    });
+
+    dropZone.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            fileInput.click();
+        }
+    });
+
+    fileInput.addEventListener('change', function () {
+        updateFileName(fileInput.files && fileInput.files[0]);
+    });
+
+    ['dragenter', 'dragover'].forEach(function (eventName) {
+        dropZone.addEventListener(eventName, function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('drag-over');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(function (eventName) {
+        dropZone.addEventListener(eventName, function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('drag-over');
+        });
+    });
+
+    dropZone.addEventListener('drop', function (e) {
+        const dt = e.dataTransfer;
+        if (!dt || !dt.files || dt.files.length === 0) return;
+        setFiles(dt.files);
+    });
+})();
+</script>
+{% endblock %}

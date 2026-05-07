@@ -1,0 +1,81 @@
+{% extends 'bulk_base.html' %}
+
+{% block title %}Normalized Rankings - Bulk Normalization{% endblock %}
+
+{% block extra_css %}
+<style>
+    .results-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+    }
+    .results-table th, .results-table td {
+        border-bottom: 1px solid #eee;
+        padding: 0.85rem 0.6rem;
+        text-align: left;
+        font-size: 0.88rem;
+    }
+    .results-table th {
+        border-bottom: 2px solid #000;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+    .results-table tr:hover { background: #fafafa; }
+    .rank { font-weight: 700; font-size: 1rem; }
+    .score { font-family: 'SF Mono', monospace; }
+    .meta {
+        margin-top: 1rem;
+        border: 2px solid #000;
+        background: #f7f7f7;
+        padding: 1rem;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
+        <div>
+            <h2 style="margin-bottom:0.45rem;">Final Ranking</h2>
+            <p style="font-size:0.86rem; color:#555;">Normalized using the exact statistical logic from the core scoring app.</p>
+        </div>
+        <a href="{{ url_for('download', job_id=job_id) }}" class="btn">Download Final Sheet</a>
+    </div>
+
+    {% if results %}
+    <table class="results-table">
+        <thead>
+            <tr>
+                <th>Rank</th>
+                <th>Team ID</th>
+                <th>Avg Raw</th>
+                <th>Avg Normalized</th>
+                <th>Evaluators</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in results %}
+            <tr>
+                <td class="rank">{{ loop.index }}</td>
+                <td>{{ row.team_id }}</td>
+                <td class="score">{{ row.avg_raw_score }}</td>
+                <td class="score">{{ row.avg_normalized_score }}</td>
+                <td>{{ row.num_judges }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="margin-top:1rem;">No rows available for ranking.</p>
+    {% endif %}
+
+    <div class="meta">
+        <div><strong>Evaluator field:</strong> {{ selected.evaluator_field }}</div>
+        <div><strong>Team ID field:</strong> {{ selected.entry_field }}</div>
+        <div><strong>Criteria fields:</strong> {{ selected.score_fields|join(', ') }}</div>
+        <div><strong>Source file:</strong> {{ filename }}</div>
+    </div>
+</div>
+{% endblock %}

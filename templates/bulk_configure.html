@@ -1,0 +1,207 @@
+{% extends 'bulk_base.html' %}
+
+{% block title %}Configure Fields - Bulk Normalization{% endblock %}
+
+{% block extra_css %}
+<style>
+    .section-title { margin-bottom: 0.75rem; font-size: 1.05rem; }
+    .muted { color: #666; font-size: 0.82rem; margin-bottom: 1rem; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .criteria-list {
+        border: 2px solid #000;
+        padding: 1rem;
+        max-height: 320px;
+        overflow-y: auto;
+    }
+    .criteria-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0;
+        border-bottom: 1px solid #eee;
+        font-size: 0.9rem;
+    }
+    .criteria-item:last-child { border-bottom: none; }
+    .error-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 0.6rem;
+        font-size: 0.82rem;
+    }
+    .error-table th, .error-table td {
+        border: 1px solid #ddd;
+        padding: 0.4rem 0.6rem;
+        text-align: left;
+    }
+    .error-table th { background: #ffe9e9; color: #b00020; }
+    @media (max-width: 700px) {
+        .form-grid { grid-template-columns: 1fr; }
+    }
+    .label-with-help {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    .help-tip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1rem;
+        height: 1rem;
+        border: 1px solid #000;
+        border-radius: 50%;
+        font-size: 0.72rem;
+        cursor: help;
+        user-select: none;
+    }
+    .hover-hint {
+        margin-top: 0.4rem;
+        font-size: 0.8rem;
+        color: #b00020;
+        min-height: 1.2rem;
+    }
+    .error-box {
+        margin-top: 1rem;
+        border: 2px solid #b00020;
+        background: #fff5f5;
+        padding: 1rem;
+        color: #b00020;
+    }
+    .error-box strong {
+        color: #b00020;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 class="section-title">Choose Fields</h2>
+    <p class="muted">Select evaluator ID, entry ID, and the scoring criteria fields from your uploaded file.</p>
+
+    <form method="POST" action="{{ url_for('configure', job_id=job_id) }}">
+        <div class="form-grid">
+            <div>
+                <label for="evaluator_field" class="label-with-help">
+                    Evaluator field
+                    <span
+                        class="help-tip"
+                        data-hint="Select the column that identifies who gave each score. Normalization runs per evaluator, so this field is required."
+                        aria-label="Evaluator field help"
+                    >?</span>
+                </label>
+                <div class="hover-hint" id="hint-evaluator"></div>
+                <select id="evaluator_field" name="evaluator_field" required>
+                    <option value="">Select evaluator field</option>
+                    {% for col in columns %}
+                    <option value="{{ col }}" {{ 'selected' if selected.evaluator_field == col else '' }}>{{ col }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="entry_field" class="label-with-help">
+                    Team ID field
+                    <span
+                        class="help-tip"
+                        data-hint="Select the column that uniquely identifies each team. Rankings are computed by grouping rows by this team ID."
+                        aria-label="Team ID field help"
+                    >?</span>
+                </label>
+                <div class="hover-hint" id="hint-team"></div>
+                <select id="entry_field" name="entry_field" required>
+                    <option value="">Select team field</option>
+                    {% for col in columns %}
+                    <option value="{{ col }}" {{ 'selected' if selected.entry_field == col else '' }}>{{ col }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div style="margin-top:1.2rem;">
+            <label class="label-with-help">
+                Scoring criteria fields
+                <span
+                    class="help-tip"
+                    data-hint="Choose one or more numeric scoring columns (integer or float). These fields are used as criteria for computing normalized rankings."
+                    aria-label="Scoring criteria fields help"
+                >?</span>
+            </label>
+            <div class="hover-hint" id="hint-criteria"></div>
+            <div class="criteria-list">
+                {% for col in columns %}
+                <label class="criteria-item">
+                    <input type="checkbox" name="score_fields" value="{{ col }}" {{ 'checked' if col in selected.score_fields else '' }}>
+                    <span>{{ col }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if validation_errors %}
+        <div class="error-box">
+            <strong>Type check failed:</strong> scoring fields must be numeric (integer/float).
+            <table class="error-table">
+                <thead>
+                    <tr>
+                        <th>Row</th>
+                        <th>Field</th>
+                        <th>Invalid Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for err in validation_errors %}
+                    <tr>
+                        <td>{{ err.row_number }}</td>
+                        <td>{{ err.field }}</td>
+                        <td>{{ err.value }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <div style="margin-top:1.25rem;">
+            <button type="submit">Run Validation</button>
+        </div>
+    </form>
+</div>
+<script>
+(function () {
+    const tips = document.querySelectorAll('.help-tip');
+    const hintMap = {
+        'Evaluator field': document.getElementById('hint-evaluator'),
+        'Team ID field': document.getElementById('hint-team'),
+        'Scoring criteria fields': document.getElementById('hint-criteria')
+    };
+
+    function getLabelTextFromTip(tip) {
+        const label = tip.closest('label');
+        if (!label) return '';
+        return label.childNodes[0] ? label.childNodes[0].textContent.trim() : '';
+    }
+
+    tips.forEach(function (tip) {
+        const hintText = tip.getAttribute('data-hint') || '';
+        const labelText = getLabelTextFromTip(tip);
+        const hintTarget = hintMap[labelText];
+        if (!hintTarget) return;
+
+        tip.addEventListener('mouseenter', function () {
+            hintTarget.textContent = hintText;
+        });
+        tip.addEventListener('mouseleave', function () {
+            hintTarget.textContent = '';
+        });
+        tip.addEventListener('focus', function () {
+            hintTarget.textContent = hintText;
+        });
+        tip.addEventListener('blur', function () {
+            hintTarget.textContent = '';
+        });
+    });
+})();
+</script>
+{% endblock %}
