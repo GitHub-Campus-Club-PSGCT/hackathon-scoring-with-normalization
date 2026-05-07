@@ -132,6 +132,33 @@
         font-size: 2rem;
         font-weight: 700;
     }
+
+    /* Design refresh overrides */
+    .criteria-card {
+        border: 1px solid var(--color-silver-mist);
+        border-radius: var(--radius-cards);
+        background: var(--color-pure-white);
+    }
+    .criteria-max {
+        background: var(--color-beige);
+        border-radius: var(--radius-buttons);
+        padding: 0.35rem 0.7rem;
+    }
+    .total-score {
+        background: var(--color-royal-blue);
+        border-radius: var(--radius-cards);
+    }
+    .score-slider {
+        background: var(--color-beige);
+        border-color: var(--color-silver-mist);
+        border-radius: 999px;
+    }
+    .score-slider::-webkit-slider-thumb,
+    .score-slider::-moz-range-thumb {
+        background: var(--color-energy-gold);
+        border: 1px solid var(--color-ink-black);
+        border-radius: 999px;
+    }
 </style>
 {% endblock %}
 

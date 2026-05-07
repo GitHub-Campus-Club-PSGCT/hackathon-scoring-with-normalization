@@ -1,0 +1,85 @@
+:root {
+  /* Colors */
+  --color-washed-black: #1a1a1a;
+  --color-pure-white: #ffffff;
+  --color-pearl: #f7f7f3;
+  --color-beige: #f0f0ec;
+  --color-ink-black: #000000;
+  --color-concrete: #d4d4d0;
+  --color-dim-grey: #6d6868;
+  --color-silver-mist: #b3b3b3;
+  --color-royal-blue: #1009f6;
+  --color-energy-gold: #ffba09;
+  --color-sky-blue: #add3e5;
+  --color-deep-moss: #304801;
+  --color-thistle-bloom: #e3c7de;
+
+  /* Typography — Font Families */
+  --font-abcwhyte: 'Abcwhyte', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Typography — Scale */
+  --text-caption: 11px;
+  --leading-caption: 1.4;
+  --text-body: 14px;
+  --leading-body: 1.4;
+  --text-heading-sm: 25px;
+  --leading-heading-sm: 1.25;
+  --text-heading: 28px;
+  --leading-heading: 1.2;
+  --text-heading-lg: 32px;
+  --leading-heading-lg: 1.2;
+  --text-display: 48px;
+  --leading-display: 1.2;
+
+  /* Typography — Weights */
+  --font-weight-regular: 400;
+  --font-weight-bold: 700;
+
+  /* Spacing */
+  --spacing-5: 5px;
+  --spacing-6: 6px;
+  --spacing-7: 7px;
+  --spacing-9: 9px;
+  --spacing-11: 11px;
+  --spacing-12: 12px;
+  --spacing-14: 14px;
+  --spacing-16: 16px;
+  --spacing-18: 18px;
+  --spacing-21: 21px;
+  --spacing-22: 22px;
+  --spacing-24: 24px;
+  --spacing-28: 28px;
+  --spacing-48: 48px;
+  --spacing-56: 56px;
+  --spacing-60: 60px;
+
+  /* Layout */
+  --section-gap: 60px;
+  --card-padding: 14px;
+  --element-gap: 14px;
+
+  /* Border Radius */
+  --radius-md: 4.375px;
+  --radius-lg: 10.5px;
+  --radius-2xl: 16px;
+  --radius-2xl-2: 20px;
+  --radius-3xl: 24px;
+  --radius-3xl-2: 32px;
+  --radius-3xl-3: 40px;
+  --radius-full: 96px;
+  --radius-full-2: 99px;
+  --radius-full-3: 999px;
+  --radius-full-4: 9999px;
+
+  /* Named Radii */
+  --radius-tags: 9999px;
+  --radius-cards: 24px;
+  --radius-images: 40px;
+  --radius-inputs: 4.375px;
+  --radius-buttons: 999px;
+
+  /* Surfaces */
+  --surface-page-canvas: #ffffff;
+  --surface-subtle-section: #f7f7f3;
+  --surface-interactive-surface: #f0f0ec;
+}

@@ -5,70 +5,115 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Bulk Normalization{% endblock %}</title>
     <style>
+        :root {
+            --color-washed-black: #1a1a1a;
+            --color-pure-white: #ffffff;
+            --color-pearl: #f7f7f3;
+            --color-beige: #f0f0ec;
+            --color-ink-black: #000000;
+            --color-concrete: #d4d4d0;
+            --color-dim-grey: #6d6868;
+            --color-silver-mist: #b3b3b3;
+            --color-royal-blue: #1009f6;
+            --color-energy-gold: #ffba09;
+            --radius-cards: 24px;
+            --radius-inputs: 4.375px;
+            --radius-buttons: 999px;
+            --font-abcwhyte: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', monospace;
-            background: #fff;
-            color: #000;
-            line-height: 1.6;
+            font-family: var(--font-abcwhyte);
+            background: linear-gradient(180deg, var(--color-pure-white) 0%, var(--color-pearl) 100%);
+            color: var(--color-washed-black);
+            line-height: 1.4;
             min-height: 100vh;
         }
-        .container { max-width: 940px; margin: 0 auto; padding: 2rem; }
+        .container { max-width: 1040px; margin: 0 auto; padding: 28px 24px 56px; }
         header {
-            border-bottom: 2px solid #000;
-            padding-bottom: 1rem;
-            margin-bottom: 2rem;
+            background: var(--color-pure-white);
+            border: 1px solid var(--color-silver-mist);
+            border-radius: var(--radius-cards);
+            padding: 14px 18px;
+            margin-bottom: 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        header h1 { font-size: 1.4rem; letter-spacing: -0.5px; }
-        .nav-link { color: #000; text-decoration: none; border-bottom: 1px solid transparent; }
-        .nav-link:hover { border-bottom-color: #000; }
-        .flash-messages { margin-bottom: 1.5rem; }
-        .flash { padding: 0.75rem 1rem; margin-bottom: 0.5rem; font-size: 0.875rem; }
-        .flash.success { background: #f0f0f0; border-left: 3px solid #000; }
-        .flash.error { background: #ffe9e9; color: #b00020; border-left: 3px solid #b00020; }
-        .flash.info { background: #f5f5f5; border-left: 3px solid #666; }
+        header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--color-royal-blue);
+            letter-spacing: -0.02em;
+        }
+        .nav-link {
+            color: var(--color-washed-black);
+            text-decoration: none;
+            font-size: 14px;
+            padding: 7px 11px;
+            border-radius: var(--radius-buttons);
+        }
+        .nav-link:hover { background: var(--color-beige); }
+        .flash-messages { margin-bottom: 16px; }
+        .flash {
+            padding: 11px 14px;
+            margin-bottom: 8px;
+            border-radius: 10px;
+            font-size: 14px;
+            border: 1px solid var(--color-silver-mist);
+        }
+        .flash.success { background: #eefbf3; border-color: #8ad3a9; color: #1f6a43; }
+        .flash.error { background: #fff0f2; border-color: #f2a9b6; color: #a3122f; }
+        .flash.info { background: #edf3ff; border-color: #b4c9ff; color: #223a8f; }
         .btn, button {
             font-family: inherit;
-            font-size: 0.875rem;
-            padding: 0.75rem 1.5rem;
-            background: #000;
-            color: #fff;
-            border: 2px solid #000;
+            font-size: 14px;
+            font-weight: 700;
+            padding: 12px 18px;
+            background: var(--color-energy-gold);
+            color: var(--color-ink-black);
+            border: 1px solid var(--color-ink-black);
+            border-radius: var(--radius-buttons);
             cursor: pointer;
             text-decoration: none;
             display: inline-block;
+            transition: transform 0.15s ease, filter 0.15s ease;
         }
-        .btn:hover, button:hover { background: #fff; color: #000; }
-        .btn-outline { background: #fff; color: #000; }
-        .btn-outline:hover { background: #000; color: #fff; }
+        .btn:hover, button:hover {
+            transform: translateY(-1px);
+            filter: brightness(0.97);
+        }
+        .btn-outline { background: var(--color-pure-white); color: var(--color-washed-black); border-color: var(--color-silver-mist); }
+        .btn-outline:hover { background: var(--color-beige); color: var(--color-washed-black); }
         input, select {
             font-family: inherit;
-            font-size: 0.95rem;
-            padding: 0.7rem;
-            border: 2px solid #000;
+            font-size: 14px;
+            padding: 9px 14px;
+            border: 1px solid var(--color-silver-mist);
+            border-radius: var(--radius-inputs);
             width: 100%;
-            background: #fff;
+            background: var(--color-beige);
+            color: var(--color-washed-black);
         }
-        input[type="checkbox"] {
-            width: auto;
-            padding: 0;
-            border: 1px solid #999;
-            background: transparent;
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--color-royal-blue);
+            box-shadow: 0 0 0 3px rgba(16, 9, 246, 0.14);
         }
+        input[type="checkbox"] { width: auto; padding: 0; border: 1px solid var(--color-silver-mist); background: transparent; }
         .card {
-            border: 2px solid #000;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
+            border: 1px solid var(--color-silver-mist);
+            border-radius: var(--radius-cards);
+            background: var(--color-pure-white);
+            padding: 24px;
+            margin-bottom: 16px;
         }
         footer {
-            margin-top: 3rem;
-            padding-top: 1rem;
-            border-top: 1px solid #ddd;
-            color: #666;
-            font-size: 0.75rem;
+            margin-top: 48px;
+            padding-top: 14px;
+            border-top: 1px solid var(--color-concrete);
+            color: var(--color-dim-grey);
+            font-size: 12px;
             text-align: center;
         }
     </style>

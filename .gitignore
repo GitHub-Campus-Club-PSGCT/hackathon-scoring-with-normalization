@@ -1,0 +1,8 @@
+bulk_jobs/
+data/
+*.csv
+*.xlsx
+*.xls
+*.json
+*.lock
+*.log

@@ -252,6 +252,38 @@
     .judge-detail-row:last-child {
         border-bottom: none;
     }
+
+    /* Design refresh overrides */
+    .admin-controls,
+    .round-tabs,
+    .normalization-note {
+        border: 1px solid var(--color-silver-mist);
+        border-radius: var(--radius-cards);
+    }
+    .admin-controls {
+        background: var(--color-pure-white);
+    }
+    .round-tab {
+        border-right: 1px solid var(--color-silver-mist);
+    }
+    .round-tab.active {
+        background: var(--color-royal-blue);
+        color: var(--color-pure-white);
+    }
+    .status-indicator.open {
+        background: var(--color-energy-gold);
+        color: var(--color-ink-black);
+        border: 1px solid var(--color-ink-black);
+    }
+    .results-table th {
+        color: var(--color-dim-grey);
+        border-bottom-color: var(--color-silver-mist);
+    }
+    .rank-1 {
+        background: var(--color-energy-gold);
+        color: var(--color-ink-black);
+        border-radius: 999px;
+    }
 </style>
 {% endblock %}
 
